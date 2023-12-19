@@ -37,6 +37,7 @@ class _GroceryListState extends State<GroceryList> {
         });
       }
 
+      // para evitar o loop infinito esperando por dados do firebase (caso não possua itens)
       if (response.body == 'null') {
         setState(() {
           _isLoading = false;
@@ -47,6 +48,7 @@ class _GroceryListState extends State<GroceryList> {
       final Map<String, dynamic> listData = json.decode(response.body);
       final List<GroceryItem> loadedItems = [];
       for (final item in listData.entries) {
+        // firstWhere serve para retornar uma lista com apenas uma instancia do local, no caso ele checa a lista de categorias disponiveis e retorna aonde esta tal categoria
         final category = categories.entries
             .firstWhere(
                 (catItem) => catItem.value.title == item.value['category'])
@@ -54,7 +56,7 @@ class _GroceryListState extends State<GroceryList> {
         loadedItems.add(
           GroceryItem(
             id: item.key,
-            name: item.value['name'],
+            name: item.value['value'],
             quantity: item.value['quantity'],
             category: category,
           ),
@@ -84,6 +86,7 @@ class _GroceryListState extends State<GroceryList> {
     setState(() {
       _groceryItems.add(newItem);
     });
+    // _loadItems();
   }
 
   void _removeItem(GroceryItem item) async {
@@ -114,8 +117,8 @@ class _GroceryListState extends State<GroceryList> {
     }
 
     if (_groceryItems.isNotEmpty) {
-      content = ListView.builder(
-        // return ListView.builder(
+      // return ListView.builder(
+      return ListView.builder(
         itemCount: _groceryItems.length,
         itemBuilder: (ctx, index) => Dismissible(
           onDismissed: (direction) {
