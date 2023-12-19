@@ -26,38 +26,51 @@ class _GroceryListState extends State<GroceryList> {
   }
 
   void _loadItems() async {
-    final url = Uri.https('flutter-prep-b3d16-default-rtdb.firebaseio.com/',
-        'shopping-list.json');
-    final response = await http.get(url);
-    // final Map<String, Map<String, dynamic>> listData = // muito especifico
+    final url = Uri.https(
+        'flutter-prep-b3d16-default-rtdb.firebaseio.com', 'shopping-list.json');
 
-    if (response.statusCode >= 400) {
+    try {
+      final response = await http.get(url);
+      if (response.statusCode >= 400) {
+        setState(() {
+          _error = 'Failed to fetch data. Please try again later.';
+        });
+      }
+
+      // para evitar o loop infinito esperando por dados do firebase (caso não possua itens)
+      if (response.body == 'null' || response.body == '') {
+        setState(() {
+          _isLoading == false;
+        });
+        return;
+      }
+      // final Map<String, Map<String, dynamic>> listData = // muito especifico
+      final Map<String, dynamic> listData = json.decode(response.body);
+      final List<GroceryItem> loadedItems = [];
+      for (final item in listData.entries) {
+        // firstWhere serve para retornar uma lista com apenas uma instancia do local, no caso ele checa a lista de categorias disponiveis e retorna aonde esta tal categoria
+        final category = categories.entries
+            .firstWhere(
+                (catItem) => catItem.value.title == item.value['category'])
+            .value;
+        loadedItems.add(
+          GroceryItem(
+            id: item.key,
+            name: item.value['value'],
+            quantity: item.value['quantity'],
+            category: category,
+          ),
+        );
+      }
       setState(() {
-        _error = 'Failed to fetch data. Please try again later.';
+        _groceryItems = loadedItems;
+        _isLoading = false;
+      });
+    } catch (error) {
+      setState(() {
+        _error = 'Something went wrong. Please try again later.';
       });
     }
-
-    final Map<String, dynamic> listData = json.decode(response.body);
-    final List<GroceryItem> loadedItems = [];
-    for (final item in listData.entries) {
-      // firstWhere serve para retornar uma lista com apenas uma instancia do local, no caso ele checa a lista de categorias disponiveis e retorna aonde esta tal categoria
-      final category = categories.entries
-          .firstWhere(
-              (catItem) => catItem.value.title == item.value['category'])
-          .value;
-      loadedItems.add(
-        GroceryItem(
-          id: item.key,
-          name: item.value['value'],
-          quantity: item.value['quantity'],
-          category: category,
-        ),
-      );
-    }
-    setState(() {
-      _groceryItems = loadedItems;
-      _isLoading = false;
-    });
   }
 
   void _addItem() async {
@@ -76,10 +89,21 @@ class _GroceryListState extends State<GroceryList> {
     // _loadItems();
   }
 
-  void _removeItem(GroceryItem item) {
+  void _removeItem(GroceryItem item) async {
+    final index = _groceryItems.indexOf(item);
     setState(() {
       _groceryItems.remove(item);
     });
+    final url = Uri.https('flutter-prep-b3d16-default-rtdb.firebaseio.com',
+        'shopping-list/${item.id}.json');
+
+    final response = await http.delete(url);
+    if (response.statusCode >= 400) {
+      // Optional: Show error message
+      setState(() {
+        _groceryItems.insert(index, item);
+      });
+    }
   }
 
   @override
